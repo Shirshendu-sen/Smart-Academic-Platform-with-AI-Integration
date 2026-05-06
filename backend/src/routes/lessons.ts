@@ -1,9 +1,8 @@
 import express, { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // ── POST /api/lessons — Create a lesson inside a course ────────────
 router.post('/', authenticate, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
@@ -29,9 +28,9 @@ router.post('/', authenticate, authorize('instructor', 'admin'), async (req: Aut
 router.patch('/:id/complete', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const progress = await prisma.progress.upsert({
-      where: { studentId_lessonId: { studentId: req.user!.userId, lessonId: parseInt(req.params.id) } },
+      where: { studentId_lessonId: { studentId: req.user!.userId, lessonId: parseInt(req.params.id as string) } },
       update: { completed: true, completedAt: new Date() },
-      create: { studentId: req.user!.userId, lessonId: parseInt(req.params.id), completed: true, completedAt: new Date() }
+      create: { studentId: req.user!.userId, lessonId: parseInt(req.params.id as string), completed: true, completedAt: new Date() }
     });
 
     res.json(progress);

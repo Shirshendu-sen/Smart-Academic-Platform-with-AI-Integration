@@ -1,10 +1,9 @@
 import express, { Response } from 'express';
 import axios from 'axios';
-import { PrismaClient } from '@prisma/client';  // FIX: was missing in original
+import prisma from '../lib/prisma';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
-const prisma = new PrismaClient();  // FIX: prisma was used but never instantiated
 const AI_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
 
 // Helper: forward request to AI service with timeout and error handling

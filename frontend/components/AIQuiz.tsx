@@ -16,6 +16,7 @@ interface AIQuizProps {
 
 export default function AIQuiz({ lessonId, lessonContent }: AIQuizProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [quizId, setQuizId] = useState<number | null>(null);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,6 +32,7 @@ export default function AIQuiz({ lessonId, lessonContent }: AIQuizProps) {
         content: lessonContent
       });
       setQuestions(data.questions);
+      setQuizId(data.id);
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to generate quiz. Please try again.';
       setError(message);
@@ -47,7 +49,7 @@ export default function AIQuiz({ lessonId, lessonContent }: AIQuizProps) {
 
     try {
       const { data } = await api.post('/ai/submit-quiz', {
-        quizId: lessonId,  // reuse lessonId — backend looks up quiz by lesson
+        quizId: quizId,
         answers
       });
       setScore(data.score);

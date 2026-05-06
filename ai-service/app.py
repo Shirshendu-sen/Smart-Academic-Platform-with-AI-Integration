@@ -19,7 +19,7 @@ CORS(app, origins=[
 # ── CONFIGURE GEMINI ─────────────────────────────────────────────────
 # FIX: 'gemini-pro' is deprecated and throws an error.
 # Use 'gemini-1.5-flash' — it's faster, cheaper, and still free tier.
-api_key = os.getenv("AIzaSyDABvYssmoRwyIY8dUmXK8_tc_Hc-bl82o")
+api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise ValueError("GEMINI_API_KEY environment variable is not set!")
 

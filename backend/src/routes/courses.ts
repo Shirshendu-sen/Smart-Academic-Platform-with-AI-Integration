@@ -1,9 +1,8 @@
 import express, { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // ── GET /api/courses — All published courses (public, no auth needed) ──
 router.get('/', async (req, res): Promise<void> => {
@@ -40,6 +39,27 @@ router.get('/', async (req, res): Promise<void> => {
   } catch (error) {
     console.error('[Get Courses Error]', error);
     res.status(500).json({ error: 'Could not fetch courses.' });
+  }
+});
+
+// ── GET /api/courses/my/enrolled — All courses a student is enrolled in ──
+// IMPORTANT: This route MUST be defined before /:id, otherwise "my" matches as :id
+router.get('/my/enrolled', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const enrollments = await prisma.enrollment.findMany({
+      where: { studentId: req.user!.userId },
+      include: {
+        course: {
+          include: {
+            instructor: { select: { name: true } },
+            _count: { select: { lessons: true } }
+          }
+        }
+      }
+    });
+    res.json(enrollments.map(e => e.course));
+  } catch (error) {
+    res.status(500).json({ error: 'Could not fetch enrolled courses.' });
   }
 });
 
@@ -184,26 +204,6 @@ router.get('/:id/progress', authenticate, async (req: AuthRequest, res: Response
     res.json({ total: lessons.length, completed: completedCount, percentage });
   } catch (error) {
     res.status(500).json({ error: 'Could not fetch progress.' });
-  }
-});
-
-// ── GET /api/courses/my/enrolled — All courses a student is enrolled in ─
-router.get('/my/enrolled', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const enrollments = await prisma.enrollment.findMany({
-      where: { studentId: req.user!.userId },
-      include: {
-        course: {
-          include: {
-            instructor: { select: { name: true } },
-            _count: { select: { lessons: true } }
-          }
-        }
-      }
-    });
-    res.json(enrollments.map(e => e.course));
-  } catch (error) {
-    res.status(500).json({ error: 'Could not fetch enrolled courses.' });
   }
 });
 
