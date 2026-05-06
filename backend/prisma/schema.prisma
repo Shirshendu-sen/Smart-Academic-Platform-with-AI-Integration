@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ──────────────────────────────────────────────
+// USERS — shared table for all roles
+// ──────────────────────────────────────────────
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("student")  // "student" | "instructor" | "admin"
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  coursesCreated Course[]       @relation("InstructorCourses")
+  enrollments    Enrollment[]
+  progress       Progress[]
+  quizAttempts   QuizAttempt[]
+  certificates   Certificate[]
+
+  @@map("users")
+}
+
+// ──────────────────────────────────────────────
+// COURSES
+// ──────────────────────────────────────────────
+model Course {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  instructorId Int
+  thumbnailUrl String?
+  isPublished  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relationships
+  instructor   User         @relation("InstructorCourses", fields: [instructorId], references: [id])
+  lessons      Lesson[]
+  enrollments  Enrollment[]
+  certificates Certificate[]
+
+  @@map("courses")
+}
+
+// ──────────────────────────────────────────────
+// LESSONS
+// ──────────────────────────────────────────────
+model Lesson {
+  id         Int      @id @default(autoincrement())
+  courseId   Int
+  title      String
+  content    String?  @db.Text  // lecture notes — used by AI
+  videoUrl   String?
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relationships
+  course   Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  quiz     Quiz?
+  progress Progress[]
+
+  @@map("lessons")
+}
+
+// ──────────────────────────────────────────────
+// ENROLLMENTS
+// ──────────────────────────────────────────────
+model Enrollment {
+  id         Int      @id @default(autoincrement())
+  studentId  Int
+  courseId   Int
+  enrolledAt DateTime @default(now())
+
+  // Relationships
+  student User   @relation(fields: [studentId], references: [id])
+  course  Course @relation(fields: [courseId], references: [id])
+
+  // A student can only enroll in a course once
+  @@unique([studentId, courseId])
+  @@map("enrollments")
+}
+
+// ──────────────────────────────────────────────
+// PROGRESS (per lesson, per student)
+// ──────────────────────────────────────────────
+model Progress {
+  id          Int       @id @default(autoincrement())
+  studentId   Int
+  lessonId    Int
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+
+  // Relationships
+  student User   @relation(fields: [studentId], references: [id])
+  lesson  Lesson @relation(fields: [lessonId], references: [id])
+
+  @@unique([studentId, lessonId])
+  @@map("progress")
+}
+
+// ──────────────────────────────────────────────
+// QUIZZES (AI-generated, one per lesson)
+// ──────────────────────────────────────────────
+model Quiz {
+  id        Int      @id @default(autoincrement())
+  lessonId  Int      @unique  // one quiz per lesson
+  questions Json              // Array of {question, options[], correct_answer, explanation}
+  createdAt DateTime @default(now())
+
+  // Relationships
+  lesson   Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  attempts QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+// ──────────────────────────────────────────────
+// QUIZ ATTEMPTS
+// ──────────────────────────────────────────────
+model QuizAttempt {
+  id          Int      @id @default(autoincrement())
+  quizId      Int
+  studentId   Int
+  score       Int
+  totalQ      Int
+  answers     Json     // {questionIndex: selectedAnswer}
+  attemptedAt DateTime @default(now())
+
+  // Relationships
+  quiz    Quiz @relation(fields: [quizId], references: [id])
+  student User @relation(fields: [studentId], references: [id])
+
+  @@map("quiz_attempts")
+}
+
+// ──────────────────────────────────────────────
+// CERTIFICATES
+// ──────────────────────────────────────────────
+model Certificate {
+  id        Int      @id @default(autoincrement())
+  studentId Int
+  courseId  Int
+  certUrl   String?
+  issuedAt  DateTime @default(now())
+
+  // Relationships
+  student User   @relation(fields: [studentId], references: [id])
+  course  Course @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId])
+  @@map("certificates")
+}
