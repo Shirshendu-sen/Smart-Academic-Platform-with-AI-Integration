@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 NeuroLMS
+# 🎓 Smart Academic Platform - AI-Powered LMS
 
 ### AI-Powered Smart Academic Platform
 
@@ -30,7 +30,7 @@
 
 ## 🎯 Overview
 
-**NeuroLMS** is a production-grade, AI-integrated Learning Management System that reimagines how students learn and how instructors teach. Built with a **microservice architecture** spanning three independent services, it combines the power of **Google Gemini AI** with a modern full-stack web application to deliver intelligent, personalized education at scale.
+**Smart Academic Platform** is a production-grade, AI-integrated Learning Management System that reimagines how students learn and how instructors teach. Built with a **microservice architecture** spanning three independent services, it combines the power of **Google Gemini AI** with a modern full-stack web application to deliver intelligent, personalized education at scale.
 
 > 💡 This isn't just another LMS — it's an **AI-first academic platform** where quizzes generate themselves, lectures get summarized instantly, a context-aware chatbot resolves doubts in real-time, and students receive personalized performance insights.
 
@@ -73,7 +73,7 @@
 
 ## 🏗️ Architecture Overview
 
-NeuroLMS follows a **decoupled microservice architecture** with three independently deployable services communicating via REST APIs:
+Smart Academic Platform follows a **decoupled microservice architecture** with three independently deployable services communicating via REST APIs:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -464,6 +464,6 @@ Please ensure your code follows the existing patterns and includes appropriate t
 
 **Built with ❤️ and AI**
 
-*NeuroLMS — Intelligent Learning, Infinite Possibilities*
+*Smart Academic Platform — Intelligent Learning, Infinite Possibilities*
 
 </div>
