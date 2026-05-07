@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -19,7 +19,7 @@ app.use(helmet());
 
 // CORS: only allow requests from our frontend
 app.use(cors({
-  origin: (origin, callback) => {
+  origin: (origin: string | undefined, callback: Function) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
 
@@ -60,7 +60,7 @@ app.use('/api/ai', aiRoutes);
 
 // ── HEALTH CHECK ────────────────────────────────────────────────
 // Vercel and monitoring tools ping this to check if the server is alive
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

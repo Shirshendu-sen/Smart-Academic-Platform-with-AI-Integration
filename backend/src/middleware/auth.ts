@@ -3,10 +3,7 @@ import jwt from 'jsonwebtoken';
 
 // Extend Express Request type to include decoded JWT payload
 export interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    role: string;
-  };
+  user?: any;
 }
 
 // ── MIDDLEWARE 1: Verify JWT ────────────────────────────────────
