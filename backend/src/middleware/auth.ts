@@ -1,7 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 
-// Extend Express Request type to include decoded JWT payload
 export interface AuthRequest extends Request {
   user?: any;
 }
