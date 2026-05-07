@@ -1,16 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-// Module augmentation: adds `user` property to Express Request globally
-// This is the officially recommended way to extend Express types
-declare module "express" {
-  interface Request {
-    user?: any;
-  }
+export interface AuthRequest extends Request {
+  user?: any;
 }
-
-// AuthRequest is now just Request with the augmented `user` property
-export type AuthRequest = Request;
 
 export const authenticateToken = (
   req: AuthRequest,
