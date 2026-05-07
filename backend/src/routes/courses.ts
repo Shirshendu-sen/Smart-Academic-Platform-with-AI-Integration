@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { authenticateToken, authorize, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -44,7 +44,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
 // ── GET /api/courses/my/enrolled — All courses a student is enrolled in ──
 // IMPORTANT: This route MUST be defined before /:id, otherwise "my" matches as :id
-router.get('/my/enrolled', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/my/enrolled', authenticateToken, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const studentId = req.user!.id;
 
@@ -125,7 +125,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 });
 
 // ── POST /api/courses — Create course (instructors and admins only) ─
-router.post('/', authenticate, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', authenticateToken, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { title, description, thumbnailUrl } = req.body;
 
@@ -151,7 +151,7 @@ router.post('/', authenticate, authorize('instructor', 'admin'), async (req: Aut
 });
 
 // ── PATCH /api/courses/:id/publish — Toggle publish status ─────────
-router.patch('/:id/publish', authenticate, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/:id/publish', authenticateToken, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
@@ -184,7 +184,7 @@ router.patch('/:id/publish', authenticate, authorize('instructor', 'admin'), asy
 });
 
 // ── POST /api/courses/:id/enroll — Student enrolls in a course ─────
-router.post('/:id/enroll', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:id/enroll', authenticateToken, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const courseId = parseInt(req.params.id as string);
     if (isNaN(courseId)) {
@@ -224,7 +224,7 @@ router.post('/:id/enroll', authenticate, authorize('student'), async (req: AuthR
 });
 
 // ── GET /api/courses/:id/progress — Student's progress in a course ──
-router.get('/:id/progress', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id/progress', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const courseId = parseInt(req.params.id as string);
     if (isNaN(courseId)) {

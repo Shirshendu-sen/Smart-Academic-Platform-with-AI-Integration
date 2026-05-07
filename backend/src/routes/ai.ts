@@ -1,7 +1,7 @@
 import express, { Response } from 'express';
 import axios from 'axios';
 import prisma from '../lib/prisma';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { authenticateToken, authorize, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 const AI_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
@@ -16,7 +16,7 @@ async function callAI(endpoint: string, body: object) {
 }
 
 // ── POST /api/ai/generate-quiz ──────────────────────────────────
-router.post('/generate-quiz', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/generate-quiz', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { lessonId, content } = req.body;
 
@@ -66,7 +66,7 @@ router.post('/generate-quiz', authenticate, async (req: AuthRequest, res: Respon
 });
 
 // ── POST /api/ai/submit-quiz ─────────────────────────────────────
-router.post('/submit-quiz', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/submit-quiz', authenticateToken, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { quizId, answers } = req.body;
     // answers: { "0": "Option A", "1": "Option C", ... }
@@ -112,7 +112,7 @@ router.post('/submit-quiz', authenticate, authorize('student'), async (req: Auth
 });
 
 // ── POST /api/ai/summarize ────────────────────────────────────────
-router.post('/summarize', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/summarize', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { content } = req.body;
     if (!content) {
@@ -128,7 +128,7 @@ router.post('/summarize', authenticate, async (req: AuthRequest, res: Response):
 });
 
 // ── POST /api/ai/chat ─────────────────────────────────────────────
-router.post('/chat', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/chat', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { question, context, history } = req.body;
     if (!question) {
@@ -144,7 +144,7 @@ router.post('/chat', authenticate, async (req: AuthRequest, res: Response): Prom
 });
 
 // ── POST /api/ai/analyze-student ─────────────────────────────────
-router.post('/analyze-student', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/analyze-student', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const studentId = req.user!.id;
 

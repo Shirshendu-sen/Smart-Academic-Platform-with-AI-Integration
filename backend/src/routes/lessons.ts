@@ -1,11 +1,11 @@
 import express, { Response } from 'express';
 import prisma from '../lib/prisma';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { authenticateToken, authorize, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
 // ── POST /api/lessons — Create a lesson inside a course ────────────
-router.post('/', authenticate, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', authenticateToken, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { courseId, title, content, videoUrl, orderIndex } = req.body;
 
@@ -42,7 +42,7 @@ router.post('/', authenticate, authorize('instructor', 'admin'), async (req: Aut
 });
 
 // ── PATCH /api/lessons/:id/complete — Mark a lesson as completed ───
-router.patch('/:id/complete', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/:id/complete', authenticateToken, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const lessonId = parseInt(req.params.id as string);
     if (isNaN(lessonId)) {
