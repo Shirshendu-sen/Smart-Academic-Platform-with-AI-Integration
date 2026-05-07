@@ -46,8 +46,10 @@ router.get('/', async (req, res): Promise<void> => {
 // IMPORTANT: This route MUST be defined before /:id, otherwise "my" matches as :id
 router.get('/my/enrolled', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const studentId = req.user!.userId;
+
     const enrollments = await prisma.enrollment.findMany({
-      where: { studentId: req.user!.userId },
+      where: { studentId },
       include: {
         course: {
           include: {
@@ -57,8 +59,38 @@ router.get('/my/enrolled', authenticate, authorize('student'), async (req: AuthR
         }
       }
     });
-    res.json(enrollments.map(e => e.course));
+
+    // Compute progress percentage for each enrolled course
+    const coursesWithProgress = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        const course = enrollment.course;
+
+        const totalLessons = course._count.lessons;
+        if (totalLessons === 0) {
+          return { ...course, progress: 0 };
+        }
+
+        // Get lesson IDs for this course
+        const lessons = await prisma.lesson.findMany({
+          where: { courseId: course.id },
+          select: { id: true }
+        });
+
+        const completedCount = await prisma.progress.count({
+          where: {
+            studentId,
+            lessonId: { in: lessons.map(l => l.id) },
+            completed: true
+          }
+        });
+
+        return { ...course, progress: Math.round((completedCount / totalLessons) * 100) };
+      })
+    );
+
+    res.json(coursesWithProgress);
   } catch (error) {
+    console.error('[My Enrolled Error]', error);
     res.status(500).json({ error: 'Could not fetch enrolled courses.' });
   }
 });
@@ -66,8 +98,14 @@ router.get('/my/enrolled', authenticate, authorize('student'), async (req: AuthR
 // ── GET /api/courses/:id — Single course with lessons ─────────────
 router.get('/:id', async (req, res): Promise<void> => {
   try {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid course ID.' });
+      return;
+    }
+
     const course = await prisma.course.findUnique({
-      where: { id: parseInt(req.params.id as string) },
+      where: { id },
       include: {
         instructor: { select: { id: true, name: true, avatarUrl: true } },
         lessons: { orderBy: { orderIndex: 'asc' } },
@@ -115,9 +153,13 @@ router.post('/', authenticate, authorize('instructor', 'admin'), async (req: Aut
 // ── PATCH /api/courses/:id/publish — Toggle publish status ─────────
 router.patch('/:id/publish', authenticate, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const course = await prisma.course.findUnique({
-      where: { id: parseInt(req.params.id as string) }
-    });
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid course ID.' });
+      return;
+    }
+
+    const course = await prisma.course.findUnique({ where: { id } });
 
     if (!course) {
       res.status(404).json({ error: 'Course not found.' });
@@ -131,7 +173,7 @@ router.patch('/:id/publish', authenticate, authorize('instructor', 'admin'), asy
     }
 
     const updated = await prisma.course.update({
-      where: { id: parseInt(req.params.id as string) },
+      where: { id },
       data: { isPublished: !course.isPublished }
     });
 
@@ -145,6 +187,11 @@ router.patch('/:id/publish', authenticate, authorize('instructor', 'admin'), asy
 router.post('/:id/enroll', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const courseId = parseInt(req.params.id as string);
+    if (isNaN(courseId)) {
+      res.status(400).json({ error: 'Invalid course ID.' });
+      return;
+    }
+
     const studentId = req.user!.userId;
 
     // Check the course exists and is published
@@ -180,6 +227,11 @@ router.post('/:id/enroll', authenticate, authorize('student'), async (req: AuthR
 router.get('/:id/progress', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const courseId = parseInt(req.params.id as string);
+    if (isNaN(courseId)) {
+      res.status(400).json({ error: 'Invalid course ID.' });
+      return;
+    }
+
     const studentId = req.user!.userId;
 
     const lessons = await prisma.lesson.findMany({

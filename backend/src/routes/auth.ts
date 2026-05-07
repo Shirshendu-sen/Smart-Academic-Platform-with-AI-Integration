@@ -6,6 +6,11 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
+// Pre-computed dummy hash for timing attack prevention in login.
+// Ensures bcrypt.compare always runs, even when user is null,
+// so attackers cannot detect valid emails via response time.
+const DUMMY_HASH = bcrypt.hashSync('timing-attack-dummy', 12);
+
 // ── POST /api/auth/register ─────────────────────────────────────
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -37,9 +42,9 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       data: { name, email, password: hashedPassword, role: userRole }
     });
 
-    // Sign JWT — stores userId and role so every request knows who the caller is
+    // Sign JWT — stores id and role so every request knows who the caller is
     const token = jwt.sign(
-      { userId: user.id, role: user.role, email: user.email },
+      { id: user.id, role: user.role },
       process.env.JWT_SECRET!,
       { expiresIn: '7d' }
     );
@@ -48,7 +53,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       token,
       user: { id: user.id, name: user.name, email: user.email, role: user.role }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Register Error]', error);
     res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
@@ -66,12 +71,11 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 
     const user = await prisma.user.findUnique({ where: { email } });
 
-    // SECURITY: Run bcrypt.compare even if user is null
-    // This prevents timing attacks where an attacker can tell if an email exists
-    // by measuring how long the response takes
-    const passwordMatch = user
-      ? await bcrypt.compare(password, user.password)
-      : false;
+    // SECURITY: Always run bcrypt.compare to prevent timing attacks.
+    // When user is null, compare against a dummy hash so the operation takes
+    // the same time as a real comparison, preventing attackers from detecting
+    // valid emails via response time differences.
+    const passwordMatch = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
 
     if (!user || !passwordMatch) {
       res.status(401).json({ error: 'Invalid email or password.' });
@@ -79,7 +83,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, role: user.role, email: user.email },
+      { id: user.id, role: user.role },
       process.env.JWT_SECRET!,
       { expiresIn: '7d' }
     );
@@ -88,7 +92,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       token,
       user: { id: user.id, name: user.name, email: user.email, role: user.role }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Login Error]', error);
     res.status(500).json({ error: 'Login failed. Please try again.' });
   }
@@ -99,7 +103,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.user!.userId },
+      where: { id: req.user!.id },
       select: {
         id: true, name: true, email: true,
         role: true, avatarUrl: true, createdAt: true
@@ -113,7 +117,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise
     }
 
     res.json(user);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Me Error]', error);
     res.status(500).json({ error: 'Could not fetch user data.' });
   }

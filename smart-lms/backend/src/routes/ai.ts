@@ -25,9 +25,15 @@ router.post('/generate-quiz', authenticate, async (req: AuthRequest, res: Respon
       return;
     }
 
+    const parsedLessonId = parseInt(lessonId);
+    if (isNaN(parsedLessonId)) {
+      res.status(400).json({ error: 'Invalid lessonId.' });
+      return;
+    }
+
     // Check if a quiz already exists for this lesson
     const existingQuiz = await prisma.quiz.findUnique({
-      where: { lessonId: parseInt(lessonId) }
+      where: { lessonId: parsedLessonId }
     });
 
     if (existingQuiz) {
@@ -42,7 +48,7 @@ router.post('/generate-quiz', authenticate, async (req: AuthRequest, res: Respon
     // Save generated quiz to DB so we don't regenerate it every time
     const quiz = await prisma.quiz.create({
       data: {
-        lessonId: parseInt(lessonId),
+        lessonId: parsedLessonId,
         questions: aiResult.questions
       }
     });
@@ -65,7 +71,13 @@ router.post('/submit-quiz', authenticate, authorize('student'), async (req: Auth
     const { quizId, answers } = req.body;
     // answers: { "0": "Option A", "1": "Option C", ... }
 
-    const quiz = await prisma.quiz.findUnique({ where: { id: parseInt(quizId) } });
+    const parsedQuizId = parseInt(quizId);
+    if (isNaN(parsedQuizId)) {
+      res.status(400).json({ error: 'Invalid quizId.' });
+      return;
+    }
+
+    const quiz = await prisma.quiz.findUnique({ where: { id: parsedQuizId } });
     if (!quiz) {
       res.status(404).json({ error: 'Quiz not found.' });
       return;
@@ -84,7 +96,7 @@ router.post('/submit-quiz', authenticate, authorize('student'), async (req: Auth
 
     const attempt = await prisma.quizAttempt.create({
       data: {
-        quizId: parseInt(quizId),
+        quizId: parsedQuizId,
         studentId: req.user!.userId,
         score,
         totalQ: questions.length,
@@ -137,8 +149,15 @@ router.post('/analyze-student', authenticate, async (req: AuthRequest, res: Resp
     const studentId = req.user!.userId;
 
     // Gather real student data from the database
+    // Only count lessons in courses the student is enrolled in
+    const enrollments = await prisma.enrollment.findMany({
+      where: { studentId },
+      select: { courseId: true }
+    });
+    const enrolledCourseIds = enrollments.map(e => e.courseId);
+
     const [totalLessons, completedLessons, quizAttempts] = await Promise.all([
-      prisma.lesson.count(),
+      prisma.lesson.count({ where: { courseId: { in: enrolledCourseIds } } }),
       prisma.progress.count({ where: { studentId, completed: true } }),
       prisma.quizAttempt.findMany({
         where: { studentId },

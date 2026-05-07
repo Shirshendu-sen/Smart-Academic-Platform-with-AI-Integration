@@ -184,11 +184,18 @@ def chat():
 
         # Build multi-turn conversation history for Gemini
         # This allows the chatbot to remember what was said earlier in the conversation
+        # Validate each history message has the required structure
         gemini_history = []
         for msg in history:
+            if not isinstance(msg, dict):
+                continue
+            role = msg.get("role")
+            content = msg.get("content")
+            if role not in ("user", "model") or not isinstance(content, str):
+                continue
             gemini_history.append({
-                "role": msg["role"],
-                "parts": [msg["content"]]
+                "role": role,
+                "parts": [content]
             })
 
         chat_session = model.start_chat(history=gemini_history)
@@ -266,5 +273,6 @@ Return ONLY valid JSON. No markdown. No code blocks.
 # is a WSGI callable. Flask's app object IS a WSGI callable, so this works.
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5001))
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
     print(f"AI Service running on http://localhost:{port}")
-    app.run(port=port, debug=True)
+    app.run(port=port, debug=debug)

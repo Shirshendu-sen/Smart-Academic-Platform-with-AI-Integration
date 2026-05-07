@@ -9,7 +9,7 @@ const AI_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
 // Helper: forward request to AI service with timeout and error handling
 async function callAI(endpoint: string, body: object) {
   const response = await axios.post(`${AI_URL}${endpoint}`, body, {
-    timeout: 25000,  // 25 second timeout (Gemini can be slow on first call)
+    timeout: 120000,  // 120 second timeout (gemini-2.5-flash can be slow for quiz generation)
     headers: { 'Content-Type': 'application/json' }
   });
   return response.data;
@@ -25,9 +25,15 @@ router.post('/generate-quiz', authenticate, async (req: AuthRequest, res: Respon
       return;
     }
 
+    const parsedLessonId = parseInt(lessonId as string);
+    if (isNaN(parsedLessonId)) {
+      res.status(400).json({ error: 'Invalid lessonId.' });
+      return;
+    }
+
     // Check if a quiz already exists for this lesson
     const existingQuiz = await prisma.quiz.findUnique({
-      where: { lessonId: parseInt(lessonId) }
+      where: { lessonId: parsedLessonId }
     });
 
     if (existingQuiz) {
@@ -42,13 +48,13 @@ router.post('/generate-quiz', authenticate, async (req: AuthRequest, res: Respon
     // Save generated quiz to DB so we don't regenerate it every time
     const quiz = await prisma.quiz.create({
       data: {
-        lessonId: parseInt(lessonId),
+        lessonId: parsedLessonId,
         questions: aiResult.questions
       }
     });
 
     res.json(quiz);
-  } catch (error) {
+  } catch (error: any) {
     if (axios.isAxiosError(error)) {
       console.error('[AI Quiz Error]', error.response?.data || error.message);
       res.status(503).json({ error: 'AI service is unavailable. Please try again.' });
@@ -65,7 +71,13 @@ router.post('/submit-quiz', authenticate, authorize('student'), async (req: Auth
     const { quizId, answers } = req.body;
     // answers: { "0": "Option A", "1": "Option C", ... }
 
-    const quiz = await prisma.quiz.findUnique({ where: { id: parseInt(quizId) } });
+    const parsedQuizId = parseInt(quizId as string);
+    if (isNaN(parsedQuizId)) {
+      res.status(400).json({ error: 'Invalid quizId.' });
+      return;
+    }
+
+    const quiz = await prisma.quiz.findUnique({ where: { id: parsedQuizId } });
     if (!quiz) {
       res.status(404).json({ error: 'Quiz not found.' });
       return;
@@ -84,8 +96,8 @@ router.post('/submit-quiz', authenticate, authorize('student'), async (req: Auth
 
     const attempt = await prisma.quizAttempt.create({
       data: {
-        quizId: parseInt(quizId),
-        studentId: req.user!.userId,
+        quizId: parsedQuizId,
+        studentId: req.user!.id,
         score,
         totalQ: questions.length,
         answers
@@ -93,7 +105,7 @@ router.post('/submit-quiz', authenticate, authorize('student'), async (req: Auth
     });
 
     res.json({ attempt, score, total: questions.length, percentage: Math.round((score / questions.length) * 100) });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Submit Quiz Error]', error);
     res.status(500).json({ error: 'Could not submit quiz.' });
   }
@@ -109,7 +121,7 @@ router.post('/summarize', authenticate, async (req: AuthRequest, res: Response):
     }
     const result = await callAI('/summarize', { content });
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Summarize Error]', error);
     res.status(503).json({ error: 'AI service unavailable. Please try again.' });
   }
@@ -125,7 +137,7 @@ router.post('/chat', authenticate, async (req: AuthRequest, res: Response): Prom
     }
     const result = await callAI('/chat', { question, context: context || '', history: history || [] });
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Chat Error]', error);
     res.status(503).json({ error: 'AI service unavailable. Please try again.' });
   }
@@ -134,11 +146,18 @@ router.post('/chat', authenticate, async (req: AuthRequest, res: Response): Prom
 // ── POST /api/ai/analyze-student ─────────────────────────────────
 router.post('/analyze-student', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const studentId = req.user!.userId;
+    const studentId = req.user!.id;
 
     // Gather real student data from the database
+    // Only count lessons in courses the student is enrolled in
+    const enrollments = await prisma.enrollment.findMany({
+      where: { studentId },
+      select: { courseId: true }
+    });
+    const enrolledCourseIds = enrollments.map(e => e.courseId);
+
     const [totalLessons, completedLessons, quizAttempts] = await Promise.all([
-      prisma.lesson.count(),
+      prisma.lesson.count({ where: { courseId: { in: enrolledCourseIds } } }),
       prisma.progress.count({ where: { studentId, completed: true } }),
       prisma.quizAttempt.findMany({
         where: { studentId },
@@ -166,7 +185,7 @@ router.post('/analyze-student', authenticate, async (req: AuthRequest, res: Resp
     });
 
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Analyze Student Error]', error);
     res.status(503).json({ error: 'AI service unavailable. Please try again.' });
   }

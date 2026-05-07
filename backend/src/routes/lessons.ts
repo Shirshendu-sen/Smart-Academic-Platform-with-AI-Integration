@@ -14,12 +14,29 @@ router.post('/', authenticate, authorize('instructor', 'admin'), async (req: Aut
       return;
     }
 
+    const parsedCourseId = parseInt(courseId as string);
+    if (isNaN(parsedCourseId)) {
+      res.status(400).json({ error: 'Invalid courseId.' });
+      return;
+    }
+
+    // Verify the instructor owns this course before allowing lesson creation
+    const course = await prisma.course.findUnique({ where: { id: parsedCourseId } });
+    if (!course) {
+      res.status(404).json({ error: 'Course not found.' });
+      return;
+    }
+    if (req.user!.role === 'instructor' && course.instructorId !== req.user!.id) {
+      res.status(403).json({ error: 'You can only add lessons to your own courses.' });
+      return;
+    }
+
     const lesson = await prisma.lesson.create({
-      data: { courseId: parseInt(courseId), title, content, videoUrl, orderIndex: orderIndex || 0 }
+      data: { courseId: parsedCourseId, title, content, videoUrl, orderIndex: orderIndex || 0 }
     });
 
     res.status(201).json(lesson);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ error: 'Could not create lesson.' });
   }
 });
@@ -27,14 +44,20 @@ router.post('/', authenticate, authorize('instructor', 'admin'), async (req: Aut
 // ── PATCH /api/lessons/:id/complete — Mark a lesson as completed ───
 router.patch('/:id/complete', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const lessonId = parseInt(req.params.id as string);
+    if (isNaN(lessonId)) {
+      res.status(400).json({ error: 'Invalid lesson ID.' });
+      return;
+    }
+
     const progress = await prisma.progress.upsert({
-      where: { studentId_lessonId: { studentId: req.user!.userId, lessonId: parseInt(req.params.id as string) } },
+      where: { studentId_lessonId: { studentId: req.user!.id, lessonId } },
       update: { completed: true, completedAt: new Date() },
-      create: { studentId: req.user!.userId, lessonId: parseInt(req.params.id as string), completed: true, completedAt: new Date() }
+      create: { studentId: req.user!.id, lessonId, completed: true, completedAt: new Date() }
     });
 
     res.json(progress);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ error: 'Could not update progress.' });
   }
 });

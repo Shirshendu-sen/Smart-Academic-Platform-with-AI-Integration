@@ -4,9 +4,8 @@ import jwt from 'jsonwebtoken';
 // Extend Express Request type to include decoded JWT payload
 export interface AuthRequest extends Request {
   user?: {
-    userId: number;
-    role: 'student' | 'instructor' | 'admin';
-    email: string;
+    id: number;
+    role: string;
   };
 }
 
@@ -30,13 +29,12 @@ export const authenticate = (
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      userId: number;
-      role: 'student' | 'instructor' | 'admin';
-      email: string;
+      id: number;
+      role: string;
     };
     req.user = decoded;
     next();
-  } catch (err) {
+  } catch (err: any) {
     if (err instanceof jwt.TokenExpiredError) {
       res.status(401).json({ error: 'Token expired. Please log in again.' });
     } else {

@@ -468,9 +468,9 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("postgresql://neondb_owner:npg_Z6XPJ4OaDhEw@ep-withered-wind-ann1ekmm-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+  url       = env("DATABASE_URL")
   // directUrl is needed for Neon serverless with connection pooling
-  directUrl = env("postgresql://neondb_owner:npg_Z6XPJ4OaDhEw@ep-withered-wind-ann1ekmm-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+  directUrl = env("DATABASE_URL")
 }
 
 // ──────────────────────────────────────────────
@@ -1298,7 +1298,7 @@ CORS(app, origins=[
 # ── CONFIGURE GEMINI ─────────────────────────────────────────────────
 # FIX: 'gemini-pro' is deprecated and throws an error.
 # Use 'gemini-1.5-flash' — it's faster, cheaper, and still free tier.
-api_key = os.getenv("AIzaSyDABvYssmoRwyIY8dUmXK8_tc_Hc-bl82o")
+api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise ValueError("GEMINI_API_KEY environment variable is not set!")
 

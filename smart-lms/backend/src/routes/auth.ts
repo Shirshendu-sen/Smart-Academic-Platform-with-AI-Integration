@@ -6,6 +6,11 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
+// Pre-computed dummy hash for timing attack prevention in login.
+// Ensures bcrypt.compare always runs, even when user is null,
+// so attackers cannot detect valid emails via response time.
+const DUMMY_HASH = bcrypt.hashSync('timing-attack-dummy', 12);
+
 // ── POST /api/auth/register ─────────────────────────────────────
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -66,12 +71,11 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 
     const user = await prisma.user.findUnique({ where: { email } });
 
-    // SECURITY: Run bcrypt.compare even if user is null
-    // This prevents timing attacks where an attacker can tell if an email exists
-    // by measuring how long the response takes
-    const passwordMatch = user
-      ? await bcrypt.compare(password, user.password)
-      : false;
+    // SECURITY: Always run bcrypt.compare to prevent timing attacks.
+    // When user is null, compare against a dummy hash so the operation takes
+    // the same time as a real comparison, preventing attackers from detecting
+    // valid emails via response time differences.
+    const passwordMatch = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
 
     if (!user || !passwordMatch) {
       res.status(401).json({ error: 'Invalid email or password.' });

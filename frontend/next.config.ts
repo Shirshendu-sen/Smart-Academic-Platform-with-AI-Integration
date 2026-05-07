@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
   // This means the frontend can call /api/auth/login instead of
   // http://localhost:3001/api/auth/login, avoiding CORS issues in dev.
   //
-  // In production: NEXT_PUBLIC_BACKEND_URL is used by the axios instance directly.
+  // In production: These rewrites still apply (Next.js server acts as proxy).
+  // To bypass the proxy and call the backend directly, set NEXT_PUBLIC_BACKEND_URL
+  // and change the axios baseURL in lib/api.ts to use it.
   async rewrites() {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
     return [

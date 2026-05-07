@@ -1,11 +1,11 @@
-import express, { Response } from 'express';
+import express, { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
 // ── GET /api/courses — All published courses (public, no auth needed) ──
-router.get('/', async (req, res): Promise<void> => {
+router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const search = typeof req.query.search === 'string'
       ? req.query.search
@@ -36,7 +36,7 @@ router.get('/', async (req, res): Promise<void> => {
     ]);
 
     res.json({ courses, total, page, totalPages: Math.ceil(total / limit) });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Get Courses Error]', error);
     res.status(500).json({ error: 'Could not fetch courses.' });
   }
@@ -46,8 +46,10 @@ router.get('/', async (req, res): Promise<void> => {
 // IMPORTANT: This route MUST be defined before /:id, otherwise "my" matches as :id
 router.get('/my/enrolled', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const studentId = req.user!.id;
+
     const enrollments = await prisma.enrollment.findMany({
-      where: { studentId: req.user!.userId },
+      where: { studentId },
       include: {
         course: {
           include: {
@@ -57,17 +59,53 @@ router.get('/my/enrolled', authenticate, authorize('student'), async (req: AuthR
         }
       }
     });
-    res.json(enrollments.map(e => e.course));
-  } catch (error) {
+
+    // Compute progress percentage for each enrolled course
+    const coursesWithProgress = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        const course = enrollment.course;
+
+        const totalLessons = course._count.lessons;
+        if (totalLessons === 0) {
+          return { ...course, progress: 0 };
+        }
+
+        // Get lesson IDs for this course
+        const lessons = await prisma.lesson.findMany({
+          where: { courseId: course.id },
+          select: { id: true }
+        });
+
+        const completedCount = await prisma.progress.count({
+          where: {
+            studentId,
+            lessonId: { in: lessons.map(l => l.id) },
+            completed: true
+          }
+        });
+
+        return { ...course, progress: Math.round((completedCount / totalLessons) * 100) };
+      })
+    );
+
+    res.json(coursesWithProgress);
+  } catch (error: any) {
+    console.error('[My Enrolled Error]', error);
     res.status(500).json({ error: 'Could not fetch enrolled courses.' });
   }
 });
 
 // ── GET /api/courses/:id — Single course with lessons ─────────────
-router.get('/:id', async (req, res): Promise<void> => {
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid course ID.' });
+      return;
+    }
+
     const course = await prisma.course.findUnique({
-      where: { id: parseInt(req.params.id as string) },
+      where: { id },
       include: {
         instructor: { select: { id: true, name: true, avatarUrl: true } },
         lessons: { orderBy: { orderIndex: 'asc' } },
@@ -81,7 +119,7 @@ router.get('/:id', async (req, res): Promise<void> => {
     }
 
     res.json(course);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ error: 'Could not fetch course.' });
   }
 });
@@ -101,12 +139,12 @@ router.post('/', authenticate, authorize('instructor', 'admin'), async (req: Aut
         title,
         description,
         thumbnailUrl,
-        instructorId: req.user!.userId
+        instructorId: req.user!.id
       }
     });
 
     res.status(201).json(course);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Create Course Error]', error);
     res.status(500).json({ error: 'Could not create course.' });
   }
@@ -115,9 +153,13 @@ router.post('/', authenticate, authorize('instructor', 'admin'), async (req: Aut
 // ── PATCH /api/courses/:id/publish — Toggle publish status ─────────
 router.patch('/:id/publish', authenticate, authorize('instructor', 'admin'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const course = await prisma.course.findUnique({
-      where: { id: parseInt(req.params.id as string) }
-    });
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid course ID.' });
+      return;
+    }
+
+    const course = await prisma.course.findUnique({ where: { id } });
 
     if (!course) {
       res.status(404).json({ error: 'Course not found.' });
@@ -125,18 +167,18 @@ router.patch('/:id/publish', authenticate, authorize('instructor', 'admin'), asy
     }
 
     // Instructors can only publish their own courses
-    if (req.user!.role === 'instructor' && course.instructorId !== req.user!.userId) {
+    if (req.user!.role === 'instructor' && course.instructorId !== req.user!.id) {
       res.status(403).json({ error: 'You can only publish your own courses.' });
       return;
     }
 
     const updated = await prisma.course.update({
-      where: { id: parseInt(req.params.id as string) },
+      where: { id },
       data: { isPublished: !course.isPublished }
     });
 
     res.json(updated);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ error: 'Could not update course.' });
   }
 });
@@ -145,7 +187,12 @@ router.patch('/:id/publish', authenticate, authorize('instructor', 'admin'), asy
 router.post('/:id/enroll', authenticate, authorize('student'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const courseId = parseInt(req.params.id as string);
-    const studentId = req.user!.userId;
+    if (isNaN(courseId)) {
+      res.status(400).json({ error: 'Invalid course ID.' });
+      return;
+    }
+
+    const studentId = req.user!.id;
 
     // Check the course exists and is published
     const course = await prisma.course.findFirst({
@@ -170,7 +217,7 @@ router.post('/:id/enroll', authenticate, authorize('student'), async (req: AuthR
     });
 
     res.status(201).json({ message: 'Enrolled successfully!', enrollment });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Enroll Error]', error);
     res.status(500).json({ error: 'Enrollment failed.' });
   }
@@ -180,7 +227,12 @@ router.post('/:id/enroll', authenticate, authorize('student'), async (req: AuthR
 router.get('/:id/progress', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const courseId = parseInt(req.params.id as string);
-    const studentId = req.user!.userId;
+    if (isNaN(courseId)) {
+      res.status(400).json({ error: 'Invalid course ID.' });
+      return;
+    }
+
+    const studentId = req.user!.id;
 
     const lessons = await prisma.lesson.findMany({
       where: { courseId },
@@ -202,7 +254,7 @@ router.get('/:id/progress', authenticate, async (req: AuthRequest, res: Response
 
     const percentage = Math.round((completedCount / lessons.length) * 100);
     res.json({ total: lessons.length, completed: completedCount, percentage });
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ error: 'Could not fetch progress.' });
   }
 });

@@ -24,7 +24,7 @@ if not api_key:
     raise ValueError("GEMINI_API_KEY environment variable is not set!")
 
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-1.5-flash")  # ← FIXED from 'gemini-pro'
+model = genai.GenerativeModel("gemini-2.5-flash")  # ← FIXED: gemini-1.5-flash and 2.0-flash deprecated/quota-exceeded
 
 
 def clean_json(text: str) -> str:
@@ -45,8 +45,16 @@ def call_gemini(prompt: str) -> dict | list:
     Wrapper for all Gemini calls with error handling.
     Returns the parsed JSON, or raises an exception with a clear message.
     """
-    response = model.generate_content(prompt)
-    raw_text = response.text
+    try:
+        response = model.generate_content(prompt)
+        # Check for prompt feedback / block reasons
+        if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+            print(f"[Gemini prompt_feedback] {response.prompt_feedback}")
+        raw_text = response.text
+    except Exception as e:
+        print(f"[Gemini API Error] {type(e).__name__}: {e}")
+        raise
+
     cleaned = clean_json(raw_text)
 
     try:
@@ -58,7 +66,7 @@ def call_gemini(prompt: str) -> dict | list:
 # ─── HEALTH CHECK ──────────────────────────────────────────────────────
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({"status": "ok", "model": "gemini-1.5-flash"})
+    return jsonify({"status": "ok", "model": "gemini-2.5-flash"})
 
 
 # ─── FEATURE 1: AI QUIZ GENERATOR ─────────────────────────────────────
@@ -184,11 +192,18 @@ def chat():
 
         # Build multi-turn conversation history for Gemini
         # This allows the chatbot to remember what was said earlier in the conversation
+        # Validate each history message has the required structure
         gemini_history = []
         for msg in history:
+            if not isinstance(msg, dict):
+                continue
+            role = msg.get("role")
+            content = msg.get("content")
+            if role not in ("user", "model") or not isinstance(content, str):
+                continue
             gemini_history.append({
-                "role": msg["role"],
-                "parts": [msg["content"]]
+                "role": role,
+                "parts": [content]
             })
 
         chat_session = model.start_chat(history=gemini_history)
@@ -266,5 +281,6 @@ Return ONLY valid JSON. No markdown. No code blocks.
 # is a WSGI callable. Flask's app object IS a WSGI callable, so this works.
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5001))
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
     print(f"AI Service running on http://localhost:{port}")
-    app.run(port=port, debug=True)
+    app.run(port=port, debug=debug)
