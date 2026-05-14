@@ -1,0 +1,16 @@
+services:
+  # ── AI SERVICE (Python + Flask + Gemini) ───────────────────────────
+  # Backend is already deployed on Render. This only adds the AI service.
+  - type: web
+    name: smart-lms-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: GEMINI_API_KEY
+        sync: false          # Set manually — your Gemini API key
+      - key: BACKEND_URL
+        sync: false          # Set manually — your already-deployed backend URL (e.g. https://smart-lms-backend.onrender.com)

@@ -10,10 +10,13 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Allow requests from your backend only
+# CORS: Allow requests from the backend and frontend.
+# flask-cors does NOT support wildcard subdomains like "https://*.vercel.app",
+# so we use a regex pattern to match any Vercel deployment URL.
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3001")
 CORS(app, origins=[
-    "http://localhost:3001",
-    "https://*.vercel.app"
+    BACKEND_URL,
+    r"https://.*\.vercel\.app"   # regex pattern matches all Vercel subdomains
 ])
 
 # ── CONFIGURE GEMINI ─────────────────────────────────────────────────
@@ -155,9 +158,9 @@ Format exactly like this:
     "Key point 5 that students must remember"
   ],
   "terms": [
-    {{"term": "Technical Term", "definition": "Simple, clear definition"}},
-    {{"term": "Technical Term 2", "definition": "Simple, clear definition"}},
-    {{"term": "Technical Term 3", "definition": "Simple, clear definition"}}
+    {{\"term\": "Technical Term", "definition": "Simple, clear definition"}},
+    {{\"term\": "Technical Term 2", "definition": "Simple, clear definition"}},
+    {{\"term\": "Technical Term 3", "definition": "Simple, clear definition"}}
   ]
 }}
 """
@@ -276,9 +279,9 @@ Return ONLY valid JSON. No markdown. No code blocks.
         return jsonify({"error": "AI service error. Please try again."}), 500
 
 
-# ── WSGI entry point for Vercel ────────────────────────────────────────
-# Vercel's @vercel/python builder looks for a variable named 'app' that
-# is a WSGI callable. Flask's app object IS a WSGI callable, so this works.
+# ── WSGI entry point ────────────────────────────────────────────────
+# Render uses gunicorn (configured in requirements.txt) to serve this app.
+# Vercel's @vercel/python builder also looks for a variable named 'app'.
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5001))
     debug = os.getenv("FLASK_DEBUG", "0") == "1"
