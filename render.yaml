@@ -1,6 +1,29 @@
 services:
+  # ── BACKEND (Node.js + Express + Prisma) ──────────────────────────
+  - type: web
+    name: smart-lms-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build && npx prisma generate
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false          # Set manually — your Neon PostgreSQL connection string
+      - key: JWT_SECRET
+        generateValue: true  # Render auto-generates a secure random string
+      - key: AI_SERVICE_URL
+        fromService:
+          name: smart-lms-ai
+          type: web
+          property: hostport
+      - key: FRONTEND_URL
+        sync: false          # Set manually — your Vercel frontend URL
+
   # ── AI SERVICE (Python + Flask + Gemini) ───────────────────────────
-  # Backend is already deployed on Render. This only adds the AI service.
   - type: web
     name: smart-lms-ai
     runtime: python
@@ -13,4 +36,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false          # Set manually — your Gemini API key
       - key: BACKEND_URL
-        sync: false          # Set manually — your already-deployed backend URL (e.g. https://smart-lms-backend.onrender.com)
+        fromService:
+          name: smart-lms-backend
+          type: web
+          property: hostport
