@@ -4,7 +4,9 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { connectDB } from './db';
-import authRoutes from './routes/auth';
+import authRoutes   from './routes/auth';
+import courseRoutes from './routes/courses';
+import lessonRoutes from './routes/lessons';
 
 dotenv.config();
 
@@ -31,7 +33,9 @@ app.use(async (req, res, next) => {
   next();
 });
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth',    authRoutes);
+app.use('/api/courses', courseRoutes);
+app.use('/api/lessons', lessonRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
