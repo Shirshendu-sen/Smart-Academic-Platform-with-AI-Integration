@@ -3,10 +3,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
-import { connectDB } from './db';
-import authRoutes   from './routes/auth';
-import courseRoutes from './routes/courses';
-import lessonRoutes from './routes/lessons';
+import { connectDB }  from './db';
+import authRoutes     from './routes/auth';
+import courseRoutes   from './routes/courses';
+import lessonRoutes   from './routes/lessons';
+import aiRoutes       from './routes/ai';
 
 dotenv.config();
 
@@ -27,7 +28,6 @@ app.use('/api/auth', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Lazy DB connection — connects before every request (safe for Vercel serverless cold starts)
 app.use(async (req, res, next) => {
   await connectDB();
   next();
@@ -36,6 +36,7 @@ app.use(async (req, res, next) => {
 app.use('/api/auth',    authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/lessons', lessonRoutes);
+app.use('/api/ai',      aiRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
