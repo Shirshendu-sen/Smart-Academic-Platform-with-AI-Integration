@@ -7,10 +7,29 @@ import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-// GET /api/courses — list all published courses (no auth required)
+// GET /api/courses — list courses
+// ?instructor=me  → returns all courses owned by the authenticated user (any publish status)
+// no param        → returns all published courses (no auth required)
 router.get('/', async (req, res) => {
   try {
-    const courses = await Course.find({ isPublished: true })
+    let filter: any = { isPublished: true };
+
+    if (req.query.instructor === 'me') {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+      const token = authHeader.substring(7);
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
+        filter = { instructorId: decoded.userId };
+      } catch {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+    }
+
+    const courses = await Course.find(filter)
       .populate('instructorId', 'name')
       .lean();
 

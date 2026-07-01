@@ -34,7 +34,8 @@ router.post('/generate-quiz', authenticate, authorize('instructor', 'admin'), as
 
     res.json(quiz);
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to generate quiz' });
+    const msg = error.response?.data?.error || error.message || 'Failed to generate quiz';
+    res.status(error.response?.status || 500).json({ error: msg });
   }
 });
 
@@ -51,7 +52,8 @@ router.post('/summarize', authenticate, async (req: AuthRequest, res: Response) 
     );
     res.json(aiResponse.data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Summarization failed' });
+    const msg = error.response?.data?.error || error.message || 'Summarization failed';
+    res.status(error.response?.status || 500).json({ error: msg });
   }
 });
 
@@ -73,7 +75,8 @@ router.post('/chat', authenticate, async (req: AuthRequest, res: Response) => {
     );
     res.json(aiResponse.data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Chat failed' });
+    const msg = error.response?.data?.error || error.message || 'Chat failed';
+    res.status(error.response?.status || 500).json({ error: msg });
   }
 });
 
@@ -107,7 +110,8 @@ router.post('/analyze-student', authenticate, async (req: AuthRequest, res: Resp
     );
     res.json(aiResponse.data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Analysis failed' });
+    const msg = error.response?.data?.error || error.message || 'Analysis failed';
+    res.status(error.response?.status || 500).json({ error: msg });
   }
 });
 

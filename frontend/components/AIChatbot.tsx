@@ -28,8 +28,9 @@ export default function AIChatbot({ lessonId }: { lessonId: string }) {
         history: messages
       });
       setMessages(prev => [...prev, { role: 'assistant', content: res.data.answer }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' }]);
+    } catch (err: any) {
+      const errMsg = err.response?.data?.error || 'Sorry, something went wrong. Please try again.';
+      setMessages(prev => [...prev, { role: 'assistant', content: errMsg }]);
     } finally {
       setLoading(false);
     }
